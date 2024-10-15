@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat Catcher Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            background-color: #87CEEB;
+        }
+        #gameCanvas {
+            border: 2px solid #000;
+            background-color: #F0F8FF;
+        }
+        #startScreen {
+            position: absolute;
+            font-size: 24px;
+            color: #000;
+            text-align: center;
+        }
+        #instructions {
+            position: absolute;
+            top: 60%;
+            font-size: 18px;
+            color: #333;
+            text-align: center;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+    <div id="startScreen">Press Space to Start<br>Avoid the Dog!</div>
+    <div id="instructions">Use Left/Right Arrow Keys to Move.<br>Avoid catching the dog 🐕.<br>Skip 10 normal cats 🐱 and the game is over!</div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const instructions = document.getElementById('instructions');
+
+        const GRID_SIZE = 6;  // Grid size for positions
+        const CELL_SIZE = canvas.width / GRID_SIZE;  // Cell size based on canvas
+        let speed = 0.02;  // Slower initial game speed
+        let level = 1;  // Start from level 1
+        let catcherCat = { x: 2 };  // Initial position of the catcher
+        let fallingCats = [];  // Array to hold falling cats
+        let score = 0;  // Game score
+        let skippedCats = 0;  // Counter for skipped cats
+        let gameOver = true;  // Game over flag
+        let animationId;  // For controlling animation frames
+
+        // Cat emojis
+        const catEmojis = ['🐱', '😺', '😸', '😻', '🐈', '🙀'];
+
+        // Change background color based on the level
+        function changeBackgroundColor() {
+            const body = document.body;
+            if (level === 1) {
+                body.style.backgroundColor = "#87CEEB";  // Sky blue
+            } else if (level === 2) {
+                body.style.backgroundColor = "#FFB6C1";  // Light pink
+            } else if (level >= 3) {
+                body.style.backgroundColor = "#FFD700";  // Gold
+            }
+        }
+
+        // Draw a cat emoji
+        function drawCat(x, y, emoji) {
+            ctx.font = `${CELL_SIZE * 0.8}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(emoji, x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2);
+        }
+
+        // Create a random falling cat (normal or dog)
+        function createFallingCat() {
+            const catEmoji = Math.random() < 0.1 ? '🐕' : catEmojis[Math.floor(Math.random() * catEmojis.length)];
+            return {
+                x: Math.floor(Math.random() * GRID_SIZE),
+                y: 0,
+                emoji: catEmoji,
+                isDangerous: catEmoji === '🐕'
+            };
+        }
+
+        // Update the game state (moving cats, checking collisions)
+        function updateGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);  // Clear the canvas
+
+            // Draw the catcher cat at the bottom
+            drawCat(catcherCat.x, GRID_SIZE - 1, '😸');
+
+            fallingCats.forEach((cat, index) => {
+                drawCat(cat.x, Math.floor(cat.y), cat.emoji);
+                cat.y += speed;  // Cat falling speed
+
+                if (Math.floor(cat.y) === GRID_SIZE - 1 && cat.x === catcherCat.x) {
+                    if (cat.isDangerous) {
+                        gameOver = true;
+                    } else {
+                        score++;
+                    }
+                    fallingCats.splice(index, 1);  // Remove cat when caught
+                } else if (cat.y >= GRID_SIZE) {
+                    fallingCats.splice(index, 1);  // Remove cat if it falls off the grid
+                    if (!cat.isDangerous) {
+                        skippedCats++;  // Increase skipped cat count
+                        if (skippedCats >= 10) {
+                            gameOver = true;  // End game if 10 normal cats are skipped
+                        }
+                    }
+                }
+            });
+
+            // Adjust the spawning rate of new falling cats
+            if (Math.random() < 0.005) {  // Reduced spawn rate
+                fallingCats.push(createFallingCat());  // Add a new falling cat
+            }
+
+            // Display score and skipped count
+            ctx.fillStyle = 'black';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`Score: ${score}`, 10, 10);
+            ctx.fillText(`Skipped: ${skippedCats}`, 10, 40);
+
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.font = '40px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 20);
+                ctx.font = '20px Arial';
+                ctx.fillText('Press Space to Restart', canvas.width / 2, canvas.height / 2 + 20);
+                cancelAnimationFrame(animationId);
+                startScreen.style.display = 'block';
+                instructions.style.display = 'block';
+            } else {
+                animationId = requestAnimationFrame(updateGame);
+            }
+
+            if (score > 0 && score % 5 === 0) {
+                level = Math.floor(score / 5) + 1;
+                speed += 0.0005;  // Gradual speed increase for all levels
+                changeBackgroundColor();  // Change background based on level
+            }
+        }
+
+        // Start the game and reset variables
+        function startGame() {
+            gameOver = false;
+            score = 0;
+            skippedCats = 0;
+            fallingCats = [];
+            catcherCat = { x: 2 };  // Reset catcher position
+            speed = 0.02;  // Set initial speed to a slower value
+            level = 1;  // Reset to level 1
+            changeBackgroundColor();  // Set initial background color
+            startScreen.style.display = 'none';
+            instructions.style.display = 'none';
+            updateGame();
+        }
+
+        // Handle key presses for movement and starting the game
+        document.addEventListener('keydown', (e) => {
+            if (!gameOver) {
+                switch (e.code) {
+                    case 'ArrowLeft':
+                        if (catcherCat.x > 0) catcherCat.x--;
+                        break;
+                    case 'ArrowRight':
+                        if (catcherCat.x < GRID_SIZE - 1) catcherCat.x++;
+                        break;
+                }
+            }
+            if (e.code === 'Space' && gameOver) {
+                startGame();
+            }
+        });
+
+        drawCat(catcherCat.x, GRID_SIZE - 1, '😸');
+        startScreen.style.display = 'block';
+        instructions.style.display = 'block';
+        changeBackgroundColor();
+    </script>
+</body>
+</html>
